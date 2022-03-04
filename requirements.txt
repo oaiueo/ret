@@ -108,7 +108,6 @@ rdata==0.6
 regex==2021.7.6
 requests==2.25.1
 requests-toolbelt==0.9.1
-rpy2==3.4.5
 scikit-learn==1.0.2
 scipy==1.7.3
 seaborn==0.11.2
