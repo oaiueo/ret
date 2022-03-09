@@ -4,13 +4,14 @@ import streamlit as st
 import json
 import hashlib
 import time
+import io
+import csv
 
 EBISU_URL = "https://retty.me/API/WOUT/acp-ebisu-contents/"
 POPULAR_RESUTAURANTS_URL = "https://retty.me/API/WOUT/get-popular-restaurants-acp/"
 
 @st.cache
 def fetch_pref_dict():
-    print("fetch called")
     AREA_TABLE_URL = "https://retty.me/area/"
     TO_FETCH_PREFECTURE_LIST = ["東京", "神奈川", "千葉", "埼玉", "大阪"] #, "名古屋"]
     area_soup = bs4.BeautifulSoup(requests.get(AREA_TABLE_URL).text)
@@ -43,7 +44,6 @@ selected_area = st.sidebar.selectbox(
     pref_dict[selected_pref]["small_areas"].keys()
 )
 
-print(selected_pref)
 
 INTERVAL = st.number_input("お店をさらに読み込むインターバル（秒）", value=3.0)
 MAX_READ_MORE = st.number_input("何回お店をさらに読み込むか（回）", min_value = 0)
@@ -115,12 +115,21 @@ if st.button("取得開始"):
     # complete fetch
     # 名前、URL,エリア、ジャンル、電話番号
     # restaurant_name, url_index, area_name→sub_area_name, category_name, restaurant_tel
-    download_csv_str = "名前, URL, エリア, ジャンル, 電話番号\n"
+    csv_file_in_memory = io.StringIO(newline="")
+    csv_writer = csv.writer(csv_file_in_memory)
+    csv_writer.writerow(["名前", "URL", "エリア", "ジャンル", "電話番号"])
     for restaurant in restaurants:
         if "url_index" in restaurant:
             restaurant_url = restaurant["url_index"]
         else:
             restaurant_url = restaurant["restaurant_url"]
-        str_to_append = "{}, {}, {}, {}, {}\n".format(restaurant["restaurant_name"], restaurant_url, restaurant["area_name"] + "/" + restaurant["sub_area_name"], restaurant["category_name"], restaurant["restaurant_tel"])
-        download_csv_str += str_to_append
-    st.download_button("CSVダウンロード", download_csv_str, "output.csv")
+        if "area_name" in restaurant and "sub_area_name" in restaurant:
+            area = restaurant.get("area_name", "") + "/" + restaurant.get("sub_area_name", "")
+        elif "area_name" in restaurant:
+            area = restaurant.get("area_name", "")
+        elif "sub_area_name" in restaurant:
+            area = restaurant.get("sub_area_name", "")
+        csv_writer.writerow([restaurant.get("restaurant_name", ""), restaurant_url, area, restaurant.get("category_name", ""), restaurant.get("restaurant_tel", "")])
+    csv_file_in_memory.flush()
+    csv_file_in_memory.seek(0)
+    st.download_button("CSVダウンロード", csv_file_in_memory.read(), "output.csv", mime="text/csv")
